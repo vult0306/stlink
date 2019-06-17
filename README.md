@@ -1,3 +1,298 @@
+
+STM8
+Jump to navigationJump to search
+ Share 
+
+Contents
+1	STM8
+2	Code Resources
+3	Features
+4	Tutorial, Resources
+5	Functions
+6	ToolChain
+6.1	Guide for IAR STM8
+6.2	Upload code
+6.3	Quick Guide in Linux SDCC
+6.3.1	Install
+6.3.2	Demo code example
+6.3.3	Flash
+6.3.4	Alternative official demo code
+6.3.5	Error fix: Unlock
+7	Use
+8	Schematic
+8.1	Project
+9	Documents
+STM8
+[SDCC guide], commands
+sdcc -mstm8 --std-c99 led.c
+Important compiler options for STM8 developers include:
+
+-c to compile into object files to be linked later
+--std-c99 for compilation in C99 mode (some C99 features, e.g. variable-length arrays are not yet supported in sdcc though)
+--opt-code-size for optimization for code size
+--max-allocs-per-node to select the optimization level. the default value is 3000. Higher values result in more optimized code, longer compiler runtime, and higher memory usage during compilation.
+Code Resources
+SDCC supported, arduino based firmware - Sduino.
+STM8MXcube - http://pan.baidu.com/s/1bpFyXxt pass: 3pgm
+Features
+Type	Core	Speed	Interface	peripheral resources	I/O	Flash	EEPROM	RAM	VCC/VDD	ADC	Crystal	Operational Temperature
+STM8S103F3P6	8bit	16mhz	I2C, IrDA, LIN, SPI, UART/USART	undervoltage-check/reset, POR, PWM, WDT	16	8KB（8K x 8）	640 x 8	1K x 8	2.95 V ~ 5.5 V	A/D 5x10b	Internal	-40°C ~ 85°C（TA）
+Tutorial, Resources
+IAR Tutorial 1
+STM8 Standard lirarary from ST
+FX STM8
+Functions
+IO Registers
+
+Data Direction Register – DDR, DDR to 1 for output pin, or 0 for input pin
+Control Register 1 – C1
+Control Register 2 – C2
+Output Data Register – ODR - Reset the pin by setting ODR to 0
+Input Data Register – IDR
+Register	Mode	Value	Description
+CR1	Input	0	Floating input
+CR1	Input	1	Input with pull-up
+CR1	output	0	Open drain
+CR1	output	1	Push-Pull
+CR2	Input	0	Interrupt disabled
+CR2	Input	1	Interrupt enabled
+CR2	output	0	Output up to 2 MHz.
+CR2	output	1	Output up to 10 MHz
+ToolChain
+Guide for IAR STM8
+Download standard stm8 library via google search, on st website.
+Install st toolset (STVD + programmer ). Current version we provided is sttoolset_pack29 (pass electrodragon0428)
+Alternative install ST-link driver
+Upload code
+Stvp guide.png
+Install ST toolset, which include ST visual programmer
+Connect your ST-LINK, SWIM, RST, VCC better 3.3V, GND.
+select and open hex file, select menu program -> current tap and done.
+Quick Guide in Linux SDCC
+Install
+Install ubuntu on virtualbox, Install sdcc: apt-get install sdcc
+update sdcc for stm8, manually remove and install sdcc
+sudo apt-get update
+sudo apt-get remove sdcc sdcc-libraries
+sudo apt-get install sdcc
+Install stm8flash
+git clone https://github.com/vdudouyt/stm8flash.git
+cd stm8flash
+make
+sudo make install
+Demo code example
+git clone stm8 blink example:
+git clone https://github.com/vdudouyt/sdcc-examples-stm8.git
+cd sdcc-examples-stm8
+edit code for stm8s103f3:
+#define PB_ODR *(unsigned char*)0x5005
+#define PB_IDR *(unsigned char*)0x5006
+#define PB_DDR *(unsigned char*)0x5007
+#define PB_CR1 *(unsigned char*)0x5008
+#define PB_CR2 *(unsigned char*)0x5009
+
+int main()
+{
+    int d;
+    // Configure pins
+    PB_DDR = 0x20;
+    PB_CR1 = 0x20;
+    // Loop
+    do {
+        PB_ODR ^= 0x20;
+        for(d = 0; d < 15000; d++) { }
+    } while(1);
+}
+Or use
+ 
+#define PB_ODR *(unsigned char*)0x5005
+
+// Port B data direction register, for setting pins as INPUT or OUTPUT 
+#define PB_DDR *(unsigned char*)0x5007
+
+// Port B control register 1, 
+#define PB_CR1 *(unsigned char*)0x5008
+
+int main() {
+    int d;
+    // Configure pins
+    PB_DDR = 0x20; // 0x20(00100000) pin 5 set to 1 -> setting it as OUTPUT 
+    PB_CR1 = 0x20; // 0x20(00100000) pin 5 set to 1 -> setting it as PUSH-PULL Mode (only when configured as output)
+    // Loop
+    do {
+        PB_ODR ^= 0x20; // 0x20(00100000) pin 5 XOR/toggle between HIGH and LOW
+        for(d = 0; d < 29000; d++) {
+        }
+    } while(1);
+}
+change the makefile:
+SDCC=sdcc
+SDLD=sdld
+OBJECTS=blinky.ihx
+
+.PHONY: all clean flash
+
+all: $(OBJECTS)
+
+clean:
+        rm -f $(OBJECTS)
+
+flash: $(OBJECTS)
+        stm8flash -cstlinkv2 -pstm8s103f3 -w $(OBJECTS)
+
+%.ihx: %.c
+        $(SDCC) -lstm8 -mstm8 --out-fmt-ihx $(CFLAGS) $(LDFLAGS) $<
+run make again and run commands to convert c file to ihx and write flash:
+make
+Flash
+stm8flash -c stlinkv2 -p stm8s103 -w blinky.ihx
+or convert first by
+sdcc -lstm8 -mstm8 --out-fmt-ihx blinky.c
+read flash
+stm8flash -c stlinkv2 -p stm8s003?3  -r aa.hex
+./stm8flash -c stlink -p stm8s103k3 -w led.ihx
+Alternative official demo code
+// Source code under CC0 1.0
+#include <stdint.h>
+
+#define CLK_DIVR	(*(volatile uint8_t *)0x50c6)
+#define CLK_PCKENR1	(*(volatile uint8_t *)0x50c7)
+
+#define TIM1_CR1	(*(volatile uint8_t *)0x5250)
+#define TIM1_CNTRH	(*(volatile uint8_t *)0x525e)
+#define TIM1_CNTRL	(*(volatile uint8_t *)0x525f)
+#define TIM1_PSCRH	(*(volatile uint8_t *)0x5260)
+#define TIM1_PSCRL	(*(volatile uint8_t *)0x5261)
+
+#define PB_ODR	(*(volatile uint8_t *)0x5005)
+#define PB_DDR	(*(volatile uint8_t *)0x5007)
+#define PB_CR1	(*(volatile uint8_t *)0x5008)
+
+
+unsigned int clock(void)
+{
+	unsigned char h = TIM1_CNTRH;
+	unsigned char l = TIM1_CNTRL;
+	return((unsigned int)(h) << 8 | l);
+}
+
+void main(void)
+{
+	CLK_DIVR = 0x00; // Set the frequency to 16 MHz
+
+	// Configure timer
+	// 1000 ticks per second
+	TIM1_PSCRH = 0x3e;
+	TIM1_PSCRL = 0x80;
+	// Enable timer
+	TIM1_CR1 = 0x01;
+
+	PB_DDR = 0x20;
+	PB_CR1 = 0x20;
+
+	for(;;)
+		PB_ODR = (clock() % 1000 < 500) << 5;
+}
+Error fix: Unlock
+The issue written in pdf datasheet pg 45.
+sudo stm8flash -c stlinkv2 -p "stm8s103f3" -w blinky.ihx
+Determine FLASH area
+Writing Intel hex file 182 bytes at 0x8000... Tries exceeded
+Run command
+echo "00 00 ff 00 ff 00 ff 00 ff 00 ff" | xxd -r -p > factory_defaults.bin
+stm8flash -c stlinkv2 -p stm8s103f3 -s opt -w factory_defaults.bin
+Use
+programming via SWIM port, ST link programmer can be found on our store
+When power up, LED should flashing, this is programmed for testing purpose
+Schematic
+STM8S general
+
+
+STM8S103F3 - current selling .
+
+ 
+
+STM8S103F3P6
+
+ 
+
+STM8S103F3P6-2
+
+ 
+
+STM8S003F3P6
+
+ 
+
+STM8S103K3T6
+
+ 
+
+STM8S105K-005K
+
+ 
+
+STM8S207R
+
+STM8S Application
+
+
+delay relay control board
+
+STM8L Low power series
+
+
+STM8L051, LDO use ME6211
+
+ 
+
+STM8L152, SCH
+
+Vcap must connect with 1UF cap.
+Project
+
+STM8 Delay Relay with LCD
+
+ 
+
+STM 8 Clock
+
+Demo code delay relay - File:STM8 delay relay w-lcd.zip
+IAR Demo code STM8 Clock - File:LED CLOCK2.0.zip
+Documents
+STM8S103 Datasheet link from ST website, if not work please try search it
+STM8 Family
+STM8 and STM32 product and tool selection guide
+STM8S003F3 (P6) - Direct IC datasheet from St.com here.
+Demo code back up page.
+
+File:STM8S207xx.PDF
+Category: STM
+Navigation menu
+Log inPageDiscussionReadView historySearch
+Search ElectroDragon
+Electrodragon Home
+Electrodragon Store
+Wiki Home
+Community portal
+Current events
+Recent changes
+Random page
+Mediawiki
+Help
+Tools
+What links here
+Related changes
+Special pages
+Printable version
+Permanent link
+Page information
+Share
+This page was last edited on 24 December 2018, at 03:44.
+Privacy policyAbout ElectroDragonDisclaimersPowered by MediaWiki
+
+
+
 Open source version of the STMicroelectronics Stlink Tools
 ==========================================================
 
